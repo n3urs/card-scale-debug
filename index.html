@@ -17,6 +17,7 @@
     align-items: center;
     justify-content: center;
     padding: 24px;
+    padding-bottom: 56px;   /* clear the collapsed log toggle bar */
     user-select: none;
   }
 
@@ -159,20 +160,40 @@
     padding: 10px;
   }
 
-  #log {
+  #log-panel {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
+    background: #111;
+    border-top: 1px solid #222;
+    z-index: 5;
+  }
+
+  #log-toggle {
+    display: block;
+    width: 100%;
+    background: #141414;
+    border: none;
+    color: #666;
+    font-family: "SF Mono", "Courier New", monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    padding: 7px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #log {
     max-height: 120px;
     overflow-y: auto;
-    background: #111;
     padding: 8px 16px;
     font-family: "SF Mono", "Courier New", monospace;
     font-size: 11px;
     color: #555;
-    border-top: 1px solid #222;
   }
+
+  #log-panel.collapsed #log { display: none; }
 
   #log div { margin-bottom: 2px; }
   #log .new { color: #888; }
@@ -211,7 +232,10 @@
 <button class="btn" id="tare-btn" onclick="tareScale()">Tare (zero) deck</button>
 <button class="btn" id="disconnect-btn" onclick="disconnectBLE()">Disconnect</button>
 
-<div id="log"></div>
+<div id="log-panel" class="collapsed">
+  <button id="log-toggle" onclick="toggleLog()">Log ▴</button>
+  <div id="log"></div>
+</div>
 
 <script>
 // UUIDs must match firmware exactly
@@ -229,6 +253,13 @@ const SUIT_SYMBOLS = {
 };
 
 let device, server, cardChar, weightChar, cmdChar;
+
+function toggleLog() {
+  const p = document.getElementById('log-panel');
+  p.classList.toggle('collapsed');
+  document.getElementById('log-toggle').textContent =
+    p.classList.contains('collapsed') ? 'Log ▴' : 'Log ▾';
+}
 
 function log(msg) {
   const el = document.getElementById('log');
