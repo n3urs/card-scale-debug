@@ -73,6 +73,53 @@
     color: #888;
   }
 
+  /* persistent battery badge, pinned top-right like a phone status bar */
+  #batt-indicator {
+    position: fixed;
+    top: 14px;
+    right: 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: "SF Mono", "Courier New", monospace;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: #888;
+    z-index: 10;
+  }
+
+  .batt-icon {
+    position: relative;
+    width: 24px;
+    height: 12px;
+    border: 1.5px solid currentColor;
+    border-radius: 3px;
+    padding: 1px;
+  }
+
+  .batt-icon::after {            /* the little nub on the right */
+    content: '';
+    position: absolute;
+    right: -4px;
+    top: 3px;
+    width: 2px;
+    height: 4px;
+    background: currentColor;
+    border-radius: 0 1px 1px 0;
+  }
+
+  .batt-fill {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: #4caf50;
+    border-radius: 1px;
+    transition: width 0.3s ease, background 0.3s ease;
+  }
+
+  #batt-indicator.low { color: #ef5350; }
+  #batt-indicator.low .batt-fill { background: #ef5350; }
+
   .btn {
     display: block;
     width: 100%;
@@ -146,6 +193,11 @@
   Raw: <span id="weight-raw">—</span>g
 </div>
 
+<div id="batt-indicator">
+  <span id="batt-pct">—</span>
+  <span class="batt-icon"><span class="batt-fill" id="batt-fill"></span></span>
+</div>
+
 <button class="btn" id="connect-btn" onclick="connectBLE()">Connect to Scale</button>
 <button class="btn" id="disconnect-btn" onclick="disconnectBLE()">Disconnect</button>
 
@@ -156,6 +208,7 @@
 const SERVICE_UUID = '12345678-1234-1234-1234-123456789abc';
 const CARD_UUID    = '12345678-1234-1234-1234-123456789abd';
 const WEIGHT_UUID  = '12345678-1234-1234-1234-123456789abe';
+const BATT_UUID    = '12345678-1234-1234-1234-123456789abf';
 
 const SUIT_SYMBOLS = {
   'Hearts':   { symbol: '♥', cls: 'suit-hearts' },
@@ -233,6 +286,13 @@ function displayWeight(grams) {
   document.getElementById('weight-raw').textContent = grams.toFixed(1);
 }
 
+function displayBattery(pct) {
+  document.getElementById('batt-pct').textContent = pct + '%';
+  document.getElementById('batt-fill').style.width = pct + '%';
+  document.getElementById('batt-indicator').className = pct <= 20 ? 'low' : '';
+  if (pct <= 20) log('LOW BATTERY: ' + pct + '%');
+}
+
 async function connectBLE() {
   if (!navigator.bluetooth) {
     setStatus('Web Bluetooth not supported', 'error');
@@ -272,6 +332,18 @@ async function connectBLE() {
       const grams = view.getFloat32(0, true); // little-endian
       displayWeight(grams);
     });
+
+    // Battery (optional — won't break connecting to older firmware)
+    try {
+      const battChar = await service.getCharacteristic(BATT_UUID);
+      await battChar.startNotifications();
+      battChar.addEventListener('characteristicvaluechanged', e => {
+        displayBattery(e.target.value.getUint8(0));
+      });
+      displayBattery((await battChar.readValue()).getUint8(0));
+    } catch (e) {
+      log('No battery characteristic (old firmware?)');
+    }
 
     // Read initial values
     const cardVal = new TextDecoder().decode((await cardChar.readValue()));
